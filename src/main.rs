@@ -13,8 +13,11 @@ use prettytable::{Cell, Row, Table};
 use std::char;
 use std::io::{stdin, stdout, Write};
 
-const BOARD_HEIGHT: usize = 8;
-const BOARD_WIDTH: usize = 12;
+const BOARD_HEIGHT: usize = 12;
+const BOARD_WIDTH: usize = 8;
+const LABELS: [&str; 16] = [
+    "1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", "13", "14", "15", "16",
+];
 
 pub struct Terrain {
     name: String,
@@ -45,7 +48,6 @@ pub struct GridSquare {
     //Does it have a terrain piece?
     has_terrain: bool,
     terrain_piece: Terrain,
-    terrain_id: char,
 }
 
 impl GridSquare {
@@ -53,16 +55,14 @@ impl GridSquare {
         GridSquare {
             has_terrain: false,
             terrain_piece: Terrain::new(),
-            terrain_id: 'x',
         }
     }
-    pub fn place_terrain(&mut self, terrain: Terrain, id: char) -> bool {
+    pub fn place_terrain(&mut self, terrain: Terrain) -> bool {
         if self.has_terrain == true {
             return false;
         }
         self.has_terrain = true;
         self.terrain_piece = terrain;
-        self.terrain_id = id;
         return true;
     }
 }
@@ -76,16 +76,21 @@ fn main() {
         Vec::with_capacity(number_of_terrain_pieces as usize);
 
     terrain_selector::terrain_selector::choose_terrain(&mut terrain_collection);
+    for i in 0..terrain_collection.len() {
+        println!("{}: {}", i + 1, &terrain_collection[i].rule_set());
+    }
     place_terrain_pieces(&mut terrain_collection, &mut board);
     let mut table = Table::new();
+    let mut terrain_count = 0;
 
     for vector in board {
         let mut row = Row::empty();
         for square in &vector {
             let mut new_cell: Cell = if square.has_terrain {
-                Cell::new_align(&square.terrain_id.to_string(), Alignment::CENTER).with_hspan(3)
+                terrain_count += 1;
+                Cell::new_align(&terrain_count.to_string(), Alignment::CENTER).with_hspan(2)
             } else {
-                Cell::new("x").with_hspan(3)
+                Cell::new("  ").with_hspan(2)
             };
             new_cell.align(Alignment::CENTER);
             row.add_cell(new_cell);
@@ -95,10 +100,6 @@ fn main() {
     }
 
     table.printstd();
-
-    //let table = ptable!(["  ", "x", "x"], ["7", "  ", "x"], ["x", "x", "  "]);
-
-    //println!("Number of terrain pieces: {}", number_of_terrain_pieces);
 
     //make a terrain selector. Give it a method that takes a length
     //and then returns an array
@@ -115,25 +116,32 @@ fn main() {
 
 fn place_terrain_pieces(terrain_pieces: &mut Vec<Terrain>, board: &mut Vec<Vec<GridSquare>>) {
     //println!("Allocating {} pieces of terrain", terrain_pieces.capacity());
-    for i in 0..terrain_pieces.capacity() {
+    let mut x = 0;
+    let mut y = 0;
+    while terrain_pieces.len() > 0 {
         //println!("Allocating next piece");
-
-        board[rand::thread_rng().gen_range(0, 12)][rand::thread_rng().gen_range(0, 8)]
-            .place_terrain(
-                terrain_pieces.pop().unwrap(),
-                char::from_digit(i as u32, 10).unwrap(),
-            );
+        x = rand::thread_rng().gen_range(0, 8);
+        y = rand::thread_rng().gen_range(0, 12);
+        if board[x][y].has_terrain {
+            println!("Conflict detected");
+            continue;
+        }
+        else{
+            board[x][y].place_terrain(terrain_pieces.pop().unwrap());
+        }
     }
 
     //
 }
+//Do we want the numbers to move from left to right and down?
+//Print the rule sets as well
 
 fn buildboard() -> Vec<Vec<GridSquare>> {
     let mut board: Vec<Vec<GridSquare>> = (0..BOARD_WIDTH)
         .map(|_| Vec::with_capacity(BOARD_HEIGHT))
         .collect();
     for vector in &mut board {
-        for _i in 0..8 {
+        for _i in 0..BOARD_HEIGHT {
             vector.push(GridSquare::new());
         }
     }
@@ -180,26 +188,25 @@ fn guarentee() {
         rule_set: String::from("non-default rule set"),
         radius: 2,
     };
-    cell_2.place_terrain(terra_example_3, '1');
+    cell_2.place_terrain(terra_example_3);
 
     assert_eq!(true, cell_2.has_terrain);
 
     assert_eq!("non_default name", cell_2.terrain_piece.name());
     assert_eq!("non-default rule set", cell_2.terrain_piece.rule_set());
     assert_eq!(2, cell_2.terrain_piece.radius());
-    assert_eq!('1', cell_2.terrain_id);
 
-    let mut board = buildboard();
+    let board = buildboard();
     for vector in &board {
         assert_eq!(8, vector.capacity());
         //println!("Capacity of vector: {}", vector.capacity());
-        for GridSquare in vector {
+        for grid_square in vector {
             //println!("testing GridSquare");
 
-            assert_eq!(false, GridSquare.has_terrain);
-            assert_eq!("example name", GridSquare.terrain_piece.name());
-            assert_eq!("example rule set", GridSquare.terrain_piece.rule_set());
-            assert_eq!(1, GridSquare.terrain_piece.radius());
+            assert_eq!(false, grid_square.has_terrain);
+            assert_eq!("example name", grid_square.terrain_piece.name());
+            assert_eq!("example rule set", grid_square.terrain_piece.rule_set());
+            assert_eq!(1, grid_square.terrain_piece.radius());
         }
     }
     assert_eq!(false, board[1][1].has_terrain);
